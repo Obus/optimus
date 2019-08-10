@@ -1,0 +1,1 @@
+Simple optimization methods implementation for benchmarking purposes
