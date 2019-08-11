@@ -327,30 +327,45 @@ class MixedSecantSystemSolver(Optimizer):
             'w': self.w
         }
 
-
-class SecantSystemSolver2(Optimizer):
+    
+def update_subspace2(D, g, subspace_dim=None):
+    for i in range(D.shape[1]):
+        g = orthogonalize(g, D[:, i])
+    g = normalize(g)
+    if subspace_dim and D.shape[1] >= subspace_dim - 1:
+        D = D[:, -(subspace_dim - 1):]
+    return np.hstack((D, g.reshape((g.shape[0], 1))))
+    
+    
+class LQNSSO_CG(Optimizer):
 
     def __init__(
             self,
             dim,
             line_search=ScalarLS(),
+            subspace_update=update_subspace2,
             subspace_dim=None,
             step_rate=1e-4,
     ):
         self.dim = dim
         self.subspace_dim = subspace_dim
+        self.subspace_update = subspace_update
         self.line_search = line_search
         self.step_rate = step_rate
 
+        self.D = np.zeros((dim, 0))
         self.g_trace = []
         self.x_trace = []
         self.pred_d = None
-        self.a_trace = []
-        self.d_newton_trace = []
-        self.YYdcg_trace = []
+
+        self._debug = {
+            'a_trace': [],
+        }
 
     def step(self, x, func, grad):
         g = grad(x)
+        self.D = self.subspace_update(self.D, g, subspace_dim=self.subspace_dim)
+        D = self.D
         self.x_trace.append(x)
         self.g_trace.append(g)
         if len(self.g_trace) > 1:
@@ -360,33 +375,20 @@ class SecantSystemSolver2(Optimizer):
             else:
                 g_trace = self.g_trace
                 x_trace = self.x_trace
-            #             G = np.vstack([(g - g_) * l2(g) ** 2 / l2(g_) ** 2 for i, g_ in enumerate(g_trace[:-1])])
-            G = np.vstack([(g - g_) for i, g_ in enumerate(g_trace[:-1])])
-            Z = np.vstack([(x - x_) for x_ in x_trace[:-1]])
-            GG = G.T @ np.linalg.pinv(G @ G.T) @ G
-            #             y = np.array([g.dot(x - x_)  * l2(g) ** 2 / l2(g_) ** 2  for x_, g_ in zip(x_trace[:-1], g_trace[:-1])])
-            y = np.array([g.dot(x - x_) for x_, g_ in zip(x_trace[:-1], g_trace[:-1])])
-            d_newton = scipy.sparse.linalg.lsqr(G, y, atol=1e-30, btol=1e-30)[0]
-            self.d_newton_trace.append(d_newton)
-            #             z_grad = g * 0.5 + self.pred_d * 0.5
-            z_grad = g + g_trace[-1].dot(g_trace[-1]) / g_trace[-2].dot(g_trace[-2]) * self.pred_d
-            self.YYdcg_trace.append(l2(GG @ z_grad) / l2(z_grad))
-            d_grad = (np.eye(self.dim) - GG) @ z_grad
-            #             d_grad = z_grad
-            #             d_grad =  (np.eye(self.dim) - G.T @ np.linalg.pinv(G @ G.T) @ G) @ z_grad
+            G = np.vstack([(g - g_) for g_ in g_trace[:-1]])
+#             GG = G.T @ np.linalg.pinv(G @ G.T) @ G
+            y = np.array([g.dot(x - x_) for x_ in x_trace[:-1]])
+            if l2(y) == 0:
+                d_newton = np.zeros(self.dim)
+            else:
+                d_newton = scipy.sparse.linalg.lsqr(G, y, atol=1e-30, btol=1e-30)[0]
+            z_grad = g + g.dot(g) / g_trace[-2].dot(g_trace[-2]) * self.pred_d
+            d_grad = z_grad - G.T @ np.linalg.pinv(G @ G.T) @ G @ z_grad
             d = d_grad + d_newton
-
-        #             if l2(d_newton) > 0:
-        #                 a_newton = self.line_search(func, grad, x, d_newton)
-        #                 x = x + a_newton * d_newton
-        #                 d = (np.eye(self.dim) - ZZ) @ z_grad
-        #             else:
-        #                 d = z_grad
-
         else:
             d = g
         a = self.line_search(func, grad, x, d)
-        self.a_trace.append(a)
+        self._debug['a_trace'].append(a)
         x = x + a * d
         self.pred_d = d
         return x
@@ -395,5 +397,6 @@ class SecantSystemSolver2(Optimizer):
         return {
             'line_search': self.line_search,
             'subspace_dim': self.subspace_dim,
+#             'subspace_update': self.subspace_update,
             'step_rate': self.step_rate,
         }
