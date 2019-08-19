@@ -364,8 +364,8 @@ class LQNSSO_CG(Optimizer):
 
     def step(self, x, func, grad):
         g = grad(x)
-        self.D = self.subspace_update(self.D, g, subspace_dim=self.subspace_dim)
-        D = self.D
+        # self.D = self.subspace_update(self.D, g, subspace_dim=self.subspace_dim)
+        # D = self.D
         self.x_trace.append(x)
         self.g_trace.append(g)
         if len(self.g_trace) > 1:
@@ -383,7 +383,10 @@ class LQNSSO_CG(Optimizer):
             else:
                 d_newton = scipy.sparse.linalg.lsqr(G, y, atol=1e-30, btol=1e-30)[0]
             z_grad = g + g.dot(g) / g_trace[-2].dot(g_trace[-2]) * self.pred_d
-            d_grad = z_grad - G.T @ np.linalg.pinv(G @ G.T) @ G @ z_grad
+            if l2(y) == 0:
+                d_grad = z_grad
+            else:
+                d_grad = z_grad - G.T @ (np.linalg.pinv(G @ G.T) @ (G @ z_grad))
             d = d_grad + d_newton
         else:
             d = g
