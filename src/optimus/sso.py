@@ -403,3 +403,98 @@ class LQNSSO_CG(Optimizer):
 #             'subspace_update': self.subspace_update,
             'step_rate': self.step_rate,
         }
+
+
+class CustomizableLQNSSO_CG(Optimizer):
+
+    def __init__(
+            self,
+            dim,
+            line_search=ScalarLS(),
+            subspace_update=update_subspace2,
+            subspace_dim=None,
+            use_D=True,
+            remove_G=True,
+            min_y=0,
+            restart=None,
+    ):
+        self.dim = dim
+        self.subspace_dim = subspace_dim
+        self.subspace_update = subspace_update
+        self.line_search = line_search
+        self.use_D = use_D
+        self.remove_G = remove_G
+        self.min_y = min_y
+        self.restart = restart
+
+        self.D = np.zeros((dim, 0))
+        self.g_trace = []
+        self.x_trace = []
+        self.pred_d = None
+        self._step = 0
+
+    def step(self, x, func, grad):
+        self._step += 1
+
+        if self.restart and self._step % self.restart == 0:
+            self.D = np.zeros((self.dim, 0))
+            self.g_trace = []
+            self.x_trace = []
+            self.pred_d = None
+
+        g = grad(x)
+        self.D = self.subspace_update(self.D, g, subspace_dim=self.subspace_dim)
+        D = self.D
+        self.x_trace.append(x)
+        self.g_trace.append(g)
+        if self.subspace_dim:
+            g_trace = self.g_trace[-self.subspace_dim:]
+            x_trace = self.x_trace[-self.subspace_dim:]
+        if len(self.g_trace) > 1:
+            g_trace = self.g_trace
+            x_trace = self.x_trace
+
+            if self.use_D:
+                G = np.vstack([D.T.dot(g - g_) for g_ in g_trace[:-1]])
+            else:
+                G = np.vstack([(g - g_) for g_ in g_trace[:-1]])
+            y = np.array([g.dot(x - x_) for x_ in x_trace[:-1]])
+            if l2(y) / l2(g) <= self.min_y:
+                if self.use_D:
+                    d_newton = D @ np.zeros(self.subspace_dim)
+                else:
+                    d_newton = np.zeros(self.dim)
+            else:
+                if self.use_D:
+                    d_newton = D @ scipy.sparse.linalg.lsqr(G, y, atol=1e-30, btol=1e-30)[0]
+                else:
+                    d_newton = scipy.sparse.linalg.lsqr(G, y, atol=1e-30, btol=1e-30)[0]
+            z_grad = g + g.dot(g) / g_trace[-2].dot(g_trace[-2]) * self.pred_d
+            if l2(y) / l2(g) <= self.min_y:
+                d_grad = z_grad
+            else:
+                if self.use_D:
+                    z_grad_G = D @ G.T @ (np.linalg.pinv(G @ G.T) @ (G @ D.T @ z_grad))
+                else:
+                    z_grad_G = G.T @ (np.linalg.pinv(G @ G.T) @ (G @ z_grad))
+                if self.remove_G:
+                    d_grad = z_grad - z_grad_G
+                else:
+                    d_grad = z_grad
+
+            d = d_grad + d_newton
+        else:
+            d = g
+        a = self.line_search(func, grad, x, d)
+        x = x + a * d
+        self.pred_d = d
+        return x
+
+    def params(self):
+        return {
+            'sd': self.subspace_dim,
+            'rm_G': self.remove_G,
+            'use_D': self.use_D,
+            'restart': self.restart,
+            'min_y': self.min_y,
+        }
