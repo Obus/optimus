@@ -345,53 +345,42 @@ class LQNSSO_CG(Optimizer):
             line_search=ScalarLS(),
             subspace_update=update_subspace2,
             subspace_dim=None,
-            step_rate=1e-4,
     ):
         self.dim = dim
         self.subspace_dim = subspace_dim
         self.subspace_update = subspace_update
         self.line_search = line_search
-        self.step_rate = step_rate
 
         self.D = np.zeros((dim, 0))
         self.g_trace = []
         self.x_trace = []
         self.pred_d = None
 
-        self._debug = {
-            'a_trace': [],
-        }
-
     def step(self, x, func, grad):
         g = grad(x)
-        # self.D = self.subspace_update(self.D, g, subspace_dim=self.subspace_dim)
-        # D = self.D
+        self.D = self.subspace_update(self.D, g, subspace_dim=self.subspace_dim)
+        D = self.D
         self.x_trace.append(x)
         self.g_trace.append(g)
+        if self.subspace_dim:
+            self.g_trace = self.g_trace[-self.subspace_dim:]
+            self.x_trace = self.x_trace[-self.subspace_dim:]
         if len(self.g_trace) > 1:
-            if self.subspace_dim:
-                g_trace = self.g_trace[-self.subspace_dim:]
-                x_trace = self.x_trace[-self.subspace_dim:]
-            else:
-                g_trace = self.g_trace
-                x_trace = self.x_trace
-            G = np.vstack([(g - g_) for g_ in g_trace[:-1]])
-#             GG = G.T @ np.linalg.pinv(G @ G.T) @ G
+            g_trace = self.g_trace
+            x_trace = self.x_trace
+            G = np.vstack([D.T.dot(g - g_) for g_ in g_trace[:-1]])
             y = np.array([g.dot(x - x_) for x_ in x_trace[:-1]])
             if l2(y) == 0:
-                d_newton = np.zeros(self.dim)
+                d_newton = np.zeros(self.subspace_dim)
             else:
                 d_newton = scipy.sparse.linalg.lsqr(G, y, atol=1e-30, btol=1e-30)[0]
-            z_grad = g + g.dot(g) / g_trace[-2].dot(g_trace[-2]) * self.pred_d
-            if l2(y) == 0:
-                d_grad = z_grad
-            else:
-                d_grad = z_grad - G.T @ (np.linalg.pinv(G @ G.T) @ (G @ z_grad))
-            d = d_grad + d_newton
+            d_grad = g + g.dot(g) / g_trace[-2].dot(g_trace[-2]) * self.pred_d
+            if l2(y) > 0:
+                d_grad = d_grad - D @ G.T @ (np.linalg.pinv(G @ G.T) @ (G @ D.T @ d_grad))
+            d = d_grad + D @ d_newton
         else:
             d = g
         a = self.line_search(func, grad, x, d)
-        self._debug['a_trace'].append(a)
         x = x + a * d
         self.pred_d = d
         return x
@@ -399,9 +388,7 @@ class LQNSSO_CG(Optimizer):
     def params(self):
         return {
             'line_search': self.line_search,
-            'subspace_dim': self.subspace_dim,
-#             'subspace_update': self.subspace_update,
-            'step_rate': self.step_rate,
+            'sd': self.subspace_dim,
         }
 
 
@@ -448,8 +435,8 @@ class CustomizableLQNSSO_CG(Optimizer):
         self.x_trace.append(x)
         self.g_trace.append(g)
         if self.subspace_dim:
-            g_trace = self.g_trace[-self.subspace_dim:]
-            x_trace = self.x_trace[-self.subspace_dim:]
+            self.g_trace = self.g_trace[-self.subspace_dim:]
+            self.x_trace = self.x_trace[-self.subspace_dim:]
         if len(self.g_trace) > 1:
             g_trace = self.g_trace
             x_trace = self.x_trace
