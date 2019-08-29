@@ -65,7 +65,7 @@ class LQNSSO_CG(Optimizer):
             self,
             dim,
             line_search=ScalarLS(),
-            subspace_update=update_subspace2,
+            subspace_update=update_subspace3,
             subspace_dim=None,
     ):
         self.dim = dim
@@ -123,7 +123,7 @@ class CustomizableLQNSSO_CG(Optimizer):
             self,
             dim,
             line_search=ScalarLS(),
-            subspace_update=update_subspace2,
+            subspace_update=update_subspace3,
             subspace_dim=None,
             use_D=True,
             remove_G=True,
