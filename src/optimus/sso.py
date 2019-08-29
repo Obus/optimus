@@ -93,9 +93,12 @@ class LQNSSO_CG(Optimizer):
             G = np.vstack([D.T.dot(g - g_) for g_ in g_trace[:-1]])
             y = np.array([g.dot(x - x_) for x_ in x_trace[:-1]])
             if l2(y) == 0:
-                d_newton = np.zeros(self.subspace_dim)
+                d_newton = np.zeros(self.dim)
             else:
-                d_newton = scipy.sparse.linalg.lsqr(G, y, atol=1e-30, btol=1e-30)[0]
+                try:
+                    d_newton = D @ np.linalg.pinv(G.T @ G) @ G.T @ y
+                except BaseException:
+                    d_newton = D @ scipy.sparse.linalg.lsqr(G, y, atol=1e-30, btol=1e-30)[0]
             d_grad = g + g.dot(g) / g_trace[-2].dot(g_trace[-2]) * self.pred_d
             if l2(y) > 0:
                 d_grad = d_grad - D @ G.T @ (np.linalg.pinv(G @ G.T) @ (G @ D.T @ d_grad))
