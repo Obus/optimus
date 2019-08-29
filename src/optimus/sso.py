@@ -152,8 +152,6 @@ class CustomizableLQNSSO_CG(Optimizer):
             self.pred_d = None
 
         g = grad(x)
-        self.D = self.subspace_update(self.D, g, subspace_dim=self.subspace_dim)
-        D = self.D
         self.x_trace.append(x)
         self.g_trace.append(g)
         if self.subspace_dim:
@@ -163,19 +161,22 @@ class CustomizableLQNSSO_CG(Optimizer):
             g_trace = self.g_trace
             x_trace = self.x_trace
 
+            self.D = self.subspace_update(self.D, g, subspace_dim=self.subspace_dim)
+            D = self.D
+
             if self.use_D:
                 G = np.vstack([D.T.dot(g - g_) for g_ in g_trace[:-1]])
             else:
                 G = np.vstack([(g - g_) for g_ in g_trace[:-1]])
             y = np.array([g.dot(x - x_) for x_ in x_trace[:-1]])
             if l2(y) / l2(g) <= self.min_y:
-                if self.use_D:
-                    d_newton = D @ np.zeros(self.subspace_dim)
-                else:
-                    d_newton = np.zeros(self.dim)
+                d_newton = np.zeros(self.dim)
             else:
                 if self.use_D:
-                    d_newton = D @ scipy.sparse.linalg.lsqr(G, y, atol=1e-30, btol=1e-30)[0]
+                    try:
+                        d_newton = D @ np.linalg.pinv(G.T @ G) @ G.T @ y
+                    except BaseException:
+                        d_newton = D @ scipy.sparse.linalg.lsqr(G, y, atol=1e-30, btol=1e-30)[0]
                 else:
                     d_newton = scipy.sparse.linalg.lsqr(G, y, atol=1e-30, btol=1e-30)[0]
             z_grad = g + g.dot(g) / g_trace[-2].dot(g_trace[-2]) * self.pred_d
