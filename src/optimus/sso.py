@@ -27,13 +27,13 @@ def orthogonalize(x, p):
 
 def update_subspace1(D, g, subspace_dim=None):
     """columns of D - normalized gradients (not orthogonalized)"""
-    g = normalize(g).reshape((g.shape[0], 1))
+    g = normalize(g)
     if D.shape[1] == 0:
-        return g
+        return g.reshape((g.shape[0], 1))
 
     if subspace_dim and D.shape[1] >= subspace_dim:
-        D = D[:, -subspace_dim:]
-    return np.hstack((D, g))
+        D = D[:, -(subspace_dim - 1):]
+    return np.hstack((D, g.reshape((g.shape[0], 1))))
 
 
 def update_subspace2(D, g, subspace_dim=None):
