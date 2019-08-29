@@ -39,11 +39,11 @@ def update_subspace1(D, g, subspace_dim=None):
 def update_subspace2(D, g, subspace_dim=None):
     """columns of D - orthonormalized gradients,
     g is orthogonalized with respect to existing once"""
-    for i in range(max(0, D.shape[1] - subspace_dim + 1), D.shape[1]):
+    for i in range(D.shape[1]):
         g = orthogonalize(g, D[:, i])
     g = normalize(g)
-    if subspace_dim and D.shape[1] >= subspace_dim:
-        D = D[:, -subspace_dim:]
+    if subspace_dim and D.shape[1] >= subspace_dim - 1:
+        D = D[:, -(subspace_dim - 1):]
     return np.hstack((D, g.reshape((g.shape[0], 1))))
 
 
@@ -54,8 +54,8 @@ def update_subspace3(D, g, subspace_dim=None):
     for i in range(D.shape[1]):
         D[:, i] = normalize(orthogonalize(D[:, i], g))
 
-    if subspace_dim and D.shape[1] >= subspace_dim:
-        D = D[:, -subspace_dim:]
+    if subspace_dim and D.shape[1] >= subspace_dim - 1:
+        D = D[:, - (subspace_dim - 1):]
     return np.hstack((D, g.reshape((g.shape[0], 1))))
 
 
