@@ -66,36 +66,6 @@ def update_subspace5(P, g1, g0):
     return np.vstack((P[1:, :], normalize(p_k)))
 
 
-g0 = None
-p0 = None
-
-
-def update_subspace4(D, g, subspace_dim=None):
-    global g0
-    global p0
-    if p0 is None:
-        g0 = g
-        p0 = -g
-        return normalize(g).reshape((g.shape[0], 1))
-
-    g1 = g
-    b1 = g1.dot(g1) / (g0).dot(g0)
-    p1 = - g1 + p0 * b1
-
-    g0 = g1
-    p0 = p1
-
-    for i in range(D.shape[1]):
-        D[:, i] = normalize(orthogonalize(D[:, i], p1))
-
-    if subspace_dim and D.shape[1] >= subspace_dim:
-        D = D[:, -subspace_dim:]
-    return np.hstack((D, normalize(p1).reshape((g.shape[0], 1))))
-
-
-update_subspace = update_subspace2
-
-
 def update_subspace2(D, g, subspace_dim=None):
     for i in range(D.shape[1]):
         g = orthogonalize(g, D[:, i])
