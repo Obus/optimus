@@ -57,22 +57,6 @@ def update_subspace3(D, g, subspace_dim=None):
     if subspace_dim and D.shape[1] >= subspace_dim - 1:
         D = D[:, - (subspace_dim - 1):]
     return np.hstack((D, g.reshape((g.shape[0], 1))))
-
-
-def update_subspace5(P, g1, g0):
-    #     b_k = g1.dot(g1) / g0.dot(g0)
-    b_k = g1.dot(g1) / (g0).dot(g0)
-    p_k = - g1 + P[-1, :] * b_k
-    return np.vstack((P[1:, :], normalize(p_k)))
-
-
-def update_subspace2(D, g, subspace_dim=None):
-    for i in range(D.shape[1]):
-        g = orthogonalize(g, D[:, i])
-    g = normalize(g)
-    if subspace_dim and D.shape[1] >= subspace_dim:
-        D = D[:, -subspace_dim:]
-    return np.hstack((D, g.reshape((g.shape[0], 1))))
     
     
 class LQNSSO_CG(Optimizer):
