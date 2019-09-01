@@ -61,8 +61,10 @@ class LBFGS(Optimizer):
             q = g
             alphas = []
             for y, s in zip(reversed(y_trace), reversed(s_trace)):
-                rho = 1 / y.dot(s)
-                alpha = rho * s.dot(q)
+                if self._omit_y_s_pair(y, s):
+                    alphas.append(None)
+                    continue
+                alpha = s.dot(q) / y.dot(s)
                 q = q - alpha * y
                 alphas.append(alpha)
             y = y_trace[-1]
@@ -71,12 +73,16 @@ class LBFGS(Optimizer):
             z = gamma * q
 
             for y, s, alpha in zip(y_trace, s_trace, reversed(alphas)):
-                rho = 1 / y.dot(s)
-                beta = rho * y.dot(z)
+                if self._omit_y_s_pair(y, s):
+                    continue
+                beta = y.dot(z) / y.dot(s)
                 z = z + s * (alpha - beta)
             d = z
         a = self.line_search(func, grad, x, d)
         return x + a * d
+
+    def _omit_y_s_pair(self, y, s):
+        return y.dot(s) == 0
 
     def params(self):
         return {
