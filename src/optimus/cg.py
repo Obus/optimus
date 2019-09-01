@@ -24,7 +24,7 @@ class CG(Optimizer):
         if self.prev_d is None:
             d = g
         else:
-            d = g + g.dot(g) / self.prev_g.dot(self.prev_g) * self.prev_d
+            d = g + g.dot(g - self.prev_g) / self.prev_g.dot(self.prev_g) * self.prev_d
         a = self.line_search(func, grad, x, d)
         self.prev_d = d
         self.prev_g = g

@@ -99,7 +99,7 @@ class LQNSSO_CG(Optimizer):
                     d_newton = D @ np.linalg.pinv(G.T @ G) @ G.T @ y
                 except BaseException:
                     d_newton = D @ scipy.sparse.linalg.lsqr(G, y, atol=1e-30, btol=1e-30)[0]
-            d_grad = g + g.dot(g) / g_trace[-2].dot(g_trace[-2]) * self.pred_d
+            d_grad = g + g.dot(g - g_trace[-2]) / g_trace[-2].dot(g_trace[-2]) * self.pred_d
             if l2(y) > 0:
                 d_grad = d_grad - D @ G.T @ (np.linalg.pinv(G @ G.T) @ (G @ D.T @ d_grad))
             d = d_grad + D @ d_newton
@@ -182,7 +182,7 @@ class CustomizableLQNSSO_CG(Optimizer):
                         d_newton = D @ scipy.sparse.linalg.lsqr(G, y, atol=1e-30, btol=1e-30)[0]
                 else:
                     d_newton = scipy.sparse.linalg.lsqr(G, y, atol=1e-30, btol=1e-30)[0]
-            z_grad = g + g.dot(g) / g_trace[-2].dot(g_trace[-2]) * self.pred_d
+            z_grad = g + g.dot(g - g_trace[-2]) / g_trace[-2].dot(g_trace[-2]) * self.pred_d
             if l2(y) / l2(g) <= self.min_y:
                 d_grad = z_grad
             else:
