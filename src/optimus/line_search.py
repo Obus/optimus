@@ -1,4 +1,5 @@
 import abc
+import scipy.optimize
 
 from .base import Parametrizable
 
@@ -13,7 +14,7 @@ class LineSearch(Parametrizable):
 class WolfeLS(LineSearch):
 
     def __call__(self, func, grad, x, d):
-        return sp.optimize.line_search(func, grad, x, d)[0]
+        return scipy.optimize.line_search(func, grad, x, d)[0]
 
     def params(self):
         return {}

@@ -102,7 +102,6 @@ class BealePowellCG(Optimizer):
         raise Exception()
 
     def _reset(self, g):
-        print(f'restart on step {self.k}')
         self.t = self.k - 1
         self.dt = self.dk1
         self.gt = self.gk1
