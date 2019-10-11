@@ -80,13 +80,8 @@ class LQNSSO_CG(Optimizer):
 
     def step(self, x, func, grad):
         g = grad(x)
-        self.D = self.subspace_update(self.D, g, subspace_dim=self.subspace_dim)
-        D = self.D
-        self.x_trace.append(x)
-        self.g_trace.append(g)
-        if self.subspace_dim:
-            self.g_trace = self.g_trace[-self.subspace_dim:]
-            self.x_trace = self.x_trace[-self.subspace_dim:]
+        D = self.D = self.subspace_update(self.D, g, subspace_dim=self.subspace_dim)
+        self._update_traces(x, g)
         if len(self.g_trace) > 1:
             g_trace = self.g_trace
             x_trace = self.x_trace
@@ -109,6 +104,13 @@ class LQNSSO_CG(Optimizer):
         x = x + a * d
         self.pred_d = d
         return x
+
+    def _update_traces(self, x, g):
+        self.x_trace.append(x)
+        self.g_trace.append(g)
+        if self.subspace_dim:
+            self.g_trace = self.g_trace[-self.subspace_dim:]
+            self.x_trace = self.x_trace[-self.subspace_dim:]
 
     def params(self):
         return {
@@ -155,17 +157,12 @@ class CustomizableLQNSSO_CG(Optimizer):
             self.pred_d = None
 
         g = grad(x)
-        self.x_trace.append(x)
-        self.g_trace.append(g)
-        if self.subspace_dim:
-            self.g_trace = self.g_trace[-self.subspace_dim:]
-            self.x_trace = self.x_trace[-self.subspace_dim:]
+        self._update_traces(x, g)
+
         if len(self.g_trace) > 1:
             g_trace = self.g_trace
             x_trace = self.x_trace
-
-            self.D = self.subspace_update(self.D, g, subspace_dim=self.subspace_dim)
-            D = self.D
+            D = self.D = self.subspace_update(self.D, g, subspace_dim=self.subspace_dim)
 
             if self.use_D:
                 G = np.vstack([D.T.dot(g - g_) for g_ in g_trace[:-1]])
@@ -202,6 +199,13 @@ class CustomizableLQNSSO_CG(Optimizer):
         x = x + a * d
         self.pred_d = d
         return x
+
+    def _update_traces(self, x, g):
+        self.x_trace.append(x)
+        self.g_trace.append(g)
+        if self.subspace_dim:
+            self.g_trace = self.g_trace[-self.subspace_dim:]
+            self.x_trace = self.x_trace[-self.subspace_dim:]
 
     def params(self):
         return {
