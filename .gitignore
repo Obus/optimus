@@ -105,3 +105,6 @@ venv.bak/
 
 # Idea
 .idea/
+
+# Data folder
+notebooks/data
